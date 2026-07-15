@@ -9,7 +9,7 @@
   "scripts": {
     "clean": "rm -rf dist",
     "build:widget": "vite build && node scripts/inline-widget.mjs",
-    "build:server": "tsc -p tsconfig.server.json",
+    "build:server": "tsc -p tsconfig.server.json && node scripts/bundle-server.mjs",
     "build": "npm run clean && npm run build:widget && npm run build:server",
     "build:native": "swift build -c release --package-path native",
     "package:app": "bash scripts/package-app.sh",
@@ -18,6 +18,7 @@
     "typecheck": "tsc -p tsconfig.widget.json --noEmit && tsc -p tsconfig.server.json --noEmit",
     "test": "tsx --test tests/codex-link.test.ts tests/game-core.test.ts",
     "test:integration": "tsx --test tests/mcp-server.integration.test.ts",
+    "test:packaged-runtime": "node scripts/test-packaged-runtime.mjs",
     "test:native": "bash native/scripts/test.sh",
     "validate:plugin": "node scripts/validate-plugin.mjs",
     "check:web": "npm run typecheck && npm run test && npm run build && npm run test:integration && npm run validate:plugin",
@@ -38,6 +39,7 @@
     "@types/react": "^19.1.12",
     "@types/react-dom": "^19.1.9",
     "@vitejs/plugin-react": "^4.5.2",
+    "esbuild": "^0.28.1",
     "tsx": "^4.20.4",
     "typescript": "^5.9.2",
     "vite": "^7.1.1"

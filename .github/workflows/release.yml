@@ -34,6 +34,7 @@ jobs:
       - name: Build signed app and DMG
         run: |
           npm run package:app
+          npm run test:packaged-runtime
           npm run package:dmg
           npm run notarize
           codesign --verify --deep --strict "build/Monster Expedition.app"

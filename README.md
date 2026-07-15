@@ -10,13 +10,14 @@ The game has no agent lore, cloud account, analytics, transcript reader, or netw
 
 - React 19 + PixiJS 8 Codex App panel, with English default and instant `中文` / `EN` switching.
 - A deterministic 20–24 hour idle route with four monsters, two active slots, a four-signal synergy ring, Trainer skills, Camp upgrades, gear upgrading, offline progress, failure protection, and a three-stage final boss.
-- A Swift 6 AppKit + SpriteKit accessory Helper: no Dock icon, no normal window, no focus stealing, drag-safe desktop Pet, reduced-motion support, and a 0600 local socket.
+- A Swift AppKit + SpriteKit accessory Helper: no Dock icon, no normal window, no focus stealing, drag-safe desktop Pet, reduced-motion support, and a 0600 local socket.
+- The DMG embeds its own Node 24 runtime and bundled local MCP server, so players do not need a separate Node installation.
 - A local-only OTel receiver that accepts only `codex.sse_event` `response.completed` token totals; it never persists prompts, replies, code, tool data, model names, session IDs, or raw event payloads.
 - A public-marketplace manifest, build scripts, CI, release checklist, privacy notice, and uninstall instructions.
 
 ## Development
 
-Requirements: macOS 14+, Node 24+, npm, and Swift 6.2+. Full Xcode and an Apple Developer ID are needed only for a signed public DMG.
+Requirements: macOS 14+, Node 24+, npm, and Swift 5.10+ (Swift 6 recommended). Full Xcode and an Apple Developer ID are needed only for a signed public DMG.
 
 ```sh
 npm install
@@ -36,7 +37,7 @@ npm run build:native
 native/.build/release/MonsterExpeditionHelper
 ```
 
-The compiled MCP server is `dist/server/index.js`. The plugin launcher starts the installed Helper without activating it, then uses the complete local Node game server. That server writes a narrow, local visual bridge so the Pet reflects the same lead monster, Bond state, rewards, and locale as the game panel.
+The compiled MCP server is `dist/server/index.js`; packaging also bundles it into the app with its Node 24 runtime. The plugin launcher starts the installed Helper without activating it, then uses that complete local game server. That server writes a narrow, local visual bridge so the Pet reflects the same lead monster, Bond state, rewards, and locale as the game panel.
 
 ## Token connection and privacy
 

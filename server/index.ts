@@ -27,8 +27,13 @@ import type {
 const SERVER_VERSION = "0.2.0";
 const WIDGET_URI = "ui://monster-expedition/app-v1.html";
 const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
-const projectRoot = path.resolve(currentDirectory, "..", "..");
-const widgetPath = path.join(projectRoot, "dist", "widget", "index.html");
+const packagedResourceRoot = process.env.MONSTER_EXPEDITION_RESOURCE_ROOT?.trim();
+const projectRoot = packagedResourceRoot
+  ? path.resolve(packagedResourceRoot)
+  : path.resolve(currentDirectory, "..", "..");
+const widgetPath = packagedResourceRoot
+  ? path.join(projectRoot, "widget", "index.html")
+  : path.join(projectRoot, "dist", "widget", "index.html");
 
 async function updatePetBridge(snapshot: import("./game-types.js").GameSnapshot): Promise<void> {
   try {
