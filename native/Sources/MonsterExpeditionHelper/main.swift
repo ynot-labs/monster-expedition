@@ -112,9 +112,14 @@ if arguments.contains("--mcp-stdio") || arguments.contains("--rpc-stdio") || arg
         exit(1)
     }
 } else {
-    let application = NSApplication.shared
-    let delegate = AppDelegate()
-    application.delegate = delegate
-    application.setActivationPolicy(.accessory)
-    application.run()
+    // Command-line entry points execute on the process main thread. Declare that
+    // fact at the AppKit boundary so Swift 6's actor isolation is preserved while
+    // the package remains buildable on GitHub's Swift 5.10 macOS image.
+    MainActor.assumeIsolated {
+        let application = NSApplication.shared
+        let delegate = AppDelegate()
+        application.delegate = delegate
+        application.setActivationPolicy(.accessory)
+        application.run()
+    }
 }
