@@ -50,6 +50,23 @@ test("Codex Link adds and removes only its marked local OTel configuration block
   assert.match(configured, /log_user_prompt = false/);
   assert.match(configured, /127\.0\.0\.1:42129/);
   assert.match(configured, /model = "gpt-test"/);
+  assert.ok(authorized.endpoint);
+  const response = await fetch(authorized.endpoint, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      resourceLogs: [{ scopeLogs: [{ logRecords: [{
+        timeUnixNano: "456",
+        attributes: [
+          { key: "event.name", value: { stringValue: "response.completed" } },
+          { key: "total_token_usage.total_tokens", value: { intValue: "789" } },
+        ],
+      }] }] }],
+    }),
+  });
+  assert.equal(response.status, 200);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.deepEqual((await manager.drainTokenEvents()).map((event) => event.totalTokens), [789]);
   await manager.disconnect();
   assert.equal(await readFile(config, "utf8"), "model = \"gpt-test\"\n");
 });
