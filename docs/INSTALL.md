@@ -6,6 +6,6 @@
 4. Start a new Codex task and ask: `Open Monster Expedition`.
 5. Optional: open **Codex Link** and choose **Connect Codex**. Review the local change, then restart Codex once.
 
-The DMG includes the local MCP runtime; players do not need to install Node, a database, or another game launcher. The game works without step 5. The Helper is an accessory process: it has no Dock icon and should not take keyboard focus.
+The DMG contains the small native Helper and a prebuilt panel; players do not need Node, a database installation, or another game launcher. The game works without step 5. The Helper is an accessory process: it has no Dock icon and should not take keyboard focus.
 
 If Gatekeeper blocks the DMG, stop and verify that the Release is signed and notarized. Do not bypass Gatekeeper for an unsigned build.

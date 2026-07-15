@@ -8,10 +8,10 @@ The game has no agent lore, cloud account, analytics, transcript reader, or netw
 
 ## What is included
 
-- React 19 + PixiJS 8 Codex App panel, with English default and instant `中文` / `EN` switching.
+- React 19 + PixiJS 8 Codex App panel: a live auto-battle lane with waves, enemy health, visible attacks, loot ticks, party levels, and English-default instant `中文` / `EN` switching.
 - A deterministic 20–24 hour idle route with four monsters, two active slots, a four-signal synergy ring, Trainer skills, Camp upgrades, gear upgrading, offline progress, failure protection, and a three-stage final boss.
-- A Swift AppKit + SpriteKit accessory Helper: no Dock icon, no normal window, no focus stealing, drag-safe desktop Pet, reduced-motion support, and a 0600 local socket.
-- The DMG embeds its own Node 24 runtime and bundled local MCP server, so players do not need a separate Node installation.
+- A Swift AppKit + SpriteKit accessory Helper: no Dock icon, no normal window, no focus stealing, drag-safe desktop Pet, reduced-motion support, a 0600 local socket, and content-free Codex work-state feedback.
+- The distributed app is native-only: it contains the Helper and a prebuilt static panel, with no embedded Node runtime and no player-side Node requirement.
 - A local-only OTel receiver that accepts only `codex.sse_event` `response.completed` token totals; it never persists prompts, replies, code, tool data, model names, session IDs, or raw event payloads.
 - A public-marketplace manifest, build scripts, CI, release checklist, privacy notice, and uninstall instructions.
 
@@ -37,7 +37,7 @@ npm run build:native
 native/.build/release/MonsterExpeditionHelper
 ```
 
-The compiled MCP server is `dist/server/index.js`; packaging also bundles it into the app with its Node 24 runtime. The plugin launcher starts the installed Helper without activating it, then uses that complete local game server. That server writes a narrow, local visual bridge so the Pet reflects the same lead monster, Bond state, rewards, and locale as the game panel.
+The Helper is the complete local game authority. The plugin launcher starts it without activating it, then uses its stdio MCP endpoint. The Helper owns the SQLite snapshot and exposes it to both the Codex panel and the desktop Pet, so both surfaces reflect the same leader, battle state, Bond reward, language, and content-free Codex activity.
 
 ## Token connection and privacy
 

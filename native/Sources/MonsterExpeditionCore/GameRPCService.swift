@@ -3,10 +3,16 @@ import Foundation
 public final class GameRPCService: @unchecked Sendable {
     public let store: SQLiteSnapshotStore
     private let requiredCapabilityKey: String?
+    private let codexLink: CodexLinkControlling?
 
-    public init(store: SQLiteSnapshotStore, requiredCapabilityKey: String? = nil) {
+    public init(
+        store: SQLiteSnapshotStore,
+        requiredCapabilityKey: String? = nil,
+        codexLink: CodexLinkControlling? = nil
+    ) {
         self.store = store
         self.requiredCapabilityKey = requiredCapabilityKey
+        self.codexLink = codexLink
     }
 
     public func handle(line: Data) -> Data {
@@ -47,14 +53,26 @@ public final class GameRPCService: @unchecked Sendable {
 
     private func handleSync(id: Any?, params: [String: Any]) throws -> Data {
         let newTokens = max(0, integer(params["newTokens"] ?? params["tokens"]) ?? 0)
-        let elapsedSeconds = max(0, integer(params["elapsedSeconds"]) ?? 0)
+        let suppliedElapsed = integer(params["elapsedSeconds"])
         let commandID = params["commandId"] as? String
         let expectedRevision = integer(params["expectedRevision"])
         let outcome = try store.mutate(commandID: commandID, expectedRevision: expectedRevision) { snapshot in
-            snapshot.lastSyncedAt = Date()
-            snapshot.expeditionSeconds += elapsedSeconds
-            snapshot.gold += elapsedSeconds / 90
-            snapshot.trainerXP += elapsedSeconds / 120
+            let now = Date()
+            let elapsedSeconds = max(
+                0,
+                min(
+                    43_200,
+                    suppliedElapsed ?? Int(now.timeIntervalSince(snapshot.lastSyncedAt))
+                )
+            )
+            simulate(snapshot: &snapshot, seconds: elapsedSeconds)
+            snapshot.lastSyncedAt = now
+
+            if let rawWorkState = params["workState"] as? String,
+               let workState = WorkState(rawValue: rawWorkState) {
+                snapshot.workState = workState
+                snapshot.workUpdatedAt = now
+            }
 
             guard snapshot.bondCharges < GameSnapshot.maximumBondCharges else { return }
             var progress = snapshot.tokenProgress + newTokens
@@ -108,6 +126,46 @@ public final class GameRPCService: @unchecked Sendable {
                 snapshot.leadMonsterID = monsterID
             case "setPartnerMonster":
                 snapshot.partnerMonsterID = action["monsterId"] as? String
+            case "set_team":
+                guard let leadMonsterID = action["leadMonsterId"] as? String, !leadMonsterID.isEmpty else {
+                    throw ServiceError.invalidParameter("leadMonsterId")
+                }
+                snapshot.leadMonsterID = leadMonsterID
+                let monsterIDs = action["monsterIds"] as? [String] ?? []
+                snapshot.partnerMonsterID = monsterIDs.first(where: { $0 != leadMonsterID })
+            case "attempt_befriend":
+                // The first companion is deliberately generous: the Panel gives
+                // players the clear, early two-monster power spike they expect.
+                if snapshot.partnerMonsterID == nil {
+                    snapshot.partnerMonsterID = "swiftwing"
+                    snapshot.trainerXP += 120
+                }
+            case "unlock_trainer_node":
+                guard let nodeID = action["nodeId"] as? String else {
+                    throw ServiceError.invalidParameter("nodeId")
+                }
+                if nodeID == "dual-command" && snapshot.partnerMonsterID == nil {
+                    snapshot.partnerMonsterID = "swiftwing"
+                }
+                snapshot.trainerXP += 18
+            case "upgrade_gear":
+                guard snapshot.gearMaterials >= 5 else { throw ServiceError.insufficientMaterials }
+                snapshot.gearMaterials -= 5
+                snapshot.trainerXP += 25
+            case "lock_gear":
+                // Lock state is intentionally UI-only in the lightweight demo;
+                // accepting the command preserves idempotent Panel interaction.
+                break
+            case "unlock_camp_node":
+                let cost = max(0, integer(action["cost"]) ?? 100)
+                guard snapshot.gold >= cost else { throw ServiceError.insufficientGold }
+                snapshot.gold -= cost
+                snapshot.gearMaterials += 1
+            case "choose_reward":
+                guard snapshot.pendingRewards > 0 else { throw ServiceError.noPendingReward }
+                snapshot.pendingRewards -= 1
+                snapshot.gearMaterials += 2
+                snapshot.petState = snapshot.pendingRewards > 0 ? .rewardReady : .traveling
             case "setCodexLinkState":
                 guard let rawState = action["state"] as? String,
                       let state = CodexLinkState(rawValue: rawState) else {
@@ -120,9 +178,7 @@ public final class GameRPCService: @unchecked Sendable {
             case "simulateOfflineReturn":
                 let seconds = min(43_200, max(0, integer(action["seconds"]) ?? 0))
                 let effective = Int(Double(seconds) * 0.8)
-                snapshot.expeditionSeconds += effective
-                snapshot.gold += effective / 90
-                snapshot.trainerXP += effective / 120
+                simulate(snapshot: &snapshot, seconds: effective)
                 snapshot.petState = .offlineReturn
             default:
                 throw ServiceError.unknownAction(type)
@@ -134,18 +190,38 @@ public final class GameRPCService: @unchecked Sendable {
     private func handlePreferences(id: Any?, params: [String: Any]) throws -> Data {
         let commandID = params["commandId"] as? String
         let expectedRevision = integer(params["expectedRevision"])
+        let patch = params["preferences"] as? [String: Any] ?? params
+        let requestedLinkAction = patch["codexLinkAction"] as? String
+        let linkStatus: CodexLinkStatus?
+        switch requestedLinkAction {
+        case "authorize": linkStatus = try codexLink?.authorize()
+        case "disconnect": linkStatus = try codexLink?.disconnect()
+        default: linkStatus = nil
+        }
         let outcome = try store.mutate(commandID: commandID, expectedRevision: expectedRevision) { snapshot in
-            if let rawLocale = params["locale"] as? String {
+            if let rawLocale = patch["locale"] as? String {
                 guard let locale = Locale(rawValue: rawLocale) else {
                     throw ServiceError.invalidParameter("locale")
                 }
                 snapshot.preferences.locale = locale
             }
-            if let reducedMotion = params["reducedMotion"] as? Bool {
+            if let reducedMotion = patch["reducedMotion"] as? Bool {
                 snapshot.preferences.reducedMotion = reducedMotion
             }
-            if let muted = params["muted"] as? Bool {
+            if let muted = patch["muted"] as? Bool {
                 snapshot.preferences.muted = muted
+            }
+            if let soundEnabled = patch["soundEnabled"] as? Bool {
+                snapshot.preferences.muted = !soundEnabled
+            }
+            if let linkStatus {
+                snapshot.codexLinkState = linkStatus.state
+            } else if let action = requestedLinkAction {
+                switch action {
+                case "authorize": snapshot.codexLinkState = .restartRequired
+                case "disconnect": snapshot.codexLinkState = .notConfigured
+                default: break
+                }
             }
         }
         return mutationResponse(id: id, outcome: outcome)
@@ -162,6 +238,7 @@ public final class GameRPCService: @unchecked Sendable {
             "bondCharges": snapshot.bondCharges,
             "tokenProgress": snapshot.tokenProgress,
             "pendingRewards": snapshot.pendingRewards,
+            "workState": snapshot.workState?.rawValue ?? WorkState.idle.rawValue,
             "locale": snapshot.preferences.locale.rawValue,
             "databaseFilename": store.databaseURL.lastPathComponent,
             "containsConversationContent": false
@@ -197,6 +274,35 @@ public final class GameRPCService: @unchecked Sendable {
         return nil
     }
 
+    private func simulate(snapshot: inout GameSnapshot, seconds: Int) {
+        guard seconds > 0 else { return }
+        let beforeWave = snapshot.expeditionSeconds / 6
+        snapshot.expeditionSeconds += seconds
+        snapshot.gold += seconds / 4
+        snapshot.trainerXP += seconds * (snapshot.partnerMonsterID == nil ? 1 : 2)
+        snapshot.gearMaterials += seconds / 45
+
+        let afterWave = snapshot.expeditionSeconds / 6
+        let crossedElite = beforeWave / 5 < afterWave / 5
+        if snapshot.petState == .bursting {
+            snapshot.petState = .rewardReady
+        } else if crossedElite && snapshot.bondCharges > 0 {
+            snapshot.bondCharges -= 1
+            snapshot.pendingRewards += 1
+            snapshot.petState = .bursting
+        } else if snapshot.pendingRewards > 0 {
+            snapshot.petState = .rewardReady
+        } else if crossedElite {
+            snapshot.petState = .eliteAlert
+        } else if snapshot.workState == .awaitingApproval {
+            snapshot.petState = .training
+        } else if snapshot.bondCharges > 0 {
+            snapshot.petState = .bondReady
+        } else {
+            snapshot.petState = .traveling
+        }
+    }
+
     private func success(id: Any?, result: Any) -> Data {
         response(id: id, ok: true, extra: ["result": result])
     }
@@ -220,6 +326,8 @@ private enum ServiceError: Error, LocalizedError {
     case invalidParameter(String)
     case noBondCharge
     case noPendingReward
+    case insufficientGold
+    case insufficientMaterials
     case unknownAction(String)
 
     var errorDescription: String? {
@@ -227,6 +335,8 @@ private enum ServiceError: Error, LocalizedError {
         case .invalidParameter(let name): "Invalid parameter: \(name)."
         case .noBondCharge: "No Bond Burst charge is available."
         case .noPendingReward: "No reward is waiting to be claimed."
+        case .insufficientGold: "Not enough Gold."
+        case .insufficientMaterials: "Not enough Gear Materials."
         case .unknownAction(let type): "Unknown action: \(type)."
         }
     }

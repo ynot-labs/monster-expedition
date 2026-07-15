@@ -14,11 +14,19 @@ interface ExpeditionStageProps {
   ariaLabel: string;
   demoClockMs: number;
   reducedMotion: boolean;
+  battle: {
+    elite: boolean;
+    enemyHealth: number;
+    enemyMaxHealth: number;
+    attackPhase: number;
+    workState: string;
+  };
   variant?: "full" | "compact";
 }
 
 interface RuntimeHandle {
   setTime: (timeMs: number) => void;
+  setBattle: (battle: ExpeditionStageProps["battle"]) => void;
 }
 
 function outlinedEllipse(
@@ -266,6 +274,33 @@ function makeSwiftwing() {
   return monster;
 }
 
+function makeBriarback() {
+  const monster = new Container();
+  const shadow = new Graphics().ellipse(0, 47, 72, 16).fill({ color: 0x26382f, alpha: 0.24 });
+  const spines = new Graphics()
+    .moveTo(-62, 20).lineTo(-77, -38).lineTo(-40, -10)
+    .lineTo(-37, -70).lineTo(-8, -22)
+    .lineTo(7, -76).lineTo(23, -21)
+    .lineTo(51, -58).lineTo(44, -5)
+    .lineTo(78, -31).lineTo(59, 26)
+    .closePath()
+    .fill({ color: 0x536c50 })
+    .stroke({ color: INK, width: 5, join: "round" });
+  const body = outlinedEllipse(0, 17, 65, 42, 0x77905d);
+  const belly = new Graphics().ellipse(-8, 24, 35, 22).fill({ color: 0xbcc77d });
+  const snout = outlinedEllipse(-49, 23, 24, 17, 0x96a66c, 4);
+  const nose = new Graphics().circle(-67, 18, 5).fill({ color: INK });
+  const eye = new Graphics().circle(-23, -6, 6).fill({ color: INK });
+  const glint = new Graphics().circle(-21, -8, 2).fill({ color: 0xfff8dd });
+  const bracers = new Graphics()
+    .roundRect(-36, 42, 20, 13, 6).fill({ color: 0x9e6843 }).stroke({ color: INK, width: 3 })
+    .roundRect(18, 42, 20, 13, 6).fill({ color: 0x9e6843 }).stroke({ color: INK, width: 3 });
+  const rune = new Graphics().circle(24, 15, 11).stroke({ color: 0xffd867, width: 3 }).moveTo(18, 15).lineTo(30, 15).stroke({ color: 0xffd867, width: 3 });
+  monster.addChild(shadow, spines, body, belly, bracers, snout, nose, eye, glint, rune);
+  monster.label = "briarback";
+  return monster;
+}
+
 function makeScene() {
   const scene = new Container();
   const sky = new Graphics().rect(0, 0, WORLD_WIDTH, WORLD_HEIGHT).fill({ color: 0xaedbdc });
@@ -352,6 +387,14 @@ function makeScene() {
   const swiftwing = makeSwiftwing();
   swiftwing.position.set(582, 289);
   swiftwing.scale.set(0.82);
+  const briarback = makeBriarback();
+  briarback.position.set(757, 319);
+  briarback.scale.set(0.88);
+  const clash = new Graphics()
+    .circle(0, 0, 31)
+    .stroke({ color: 0xfff3aa, width: 8, alpha: 0.88 });
+  clash.position.set(657, 296);
+  clash.alpha = 0;
 
   const particles = new Container();
   const motes: Array<{ node: Graphics; baseX: number; baseY: number; phase: number; speed: number }> = [];
@@ -400,6 +443,8 @@ function makeScene() {
     caravan,
     hammerpaw,
     swiftwing,
+    briarback,
+    clash,
     particles,
     foreground,
     foregroundGrass,
@@ -413,6 +458,8 @@ function makeScene() {
     windmillB,
     hammerpaw,
     swiftwing,
+    briarback,
+    clash,
     motes,
   };
 }
@@ -421,11 +468,13 @@ export function ExpeditionStage({
   ariaLabel,
   demoClockMs,
   reducedMotion,
+  battle,
   variant = "full",
 }: ExpeditionStageProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const runtimeRef = useRef<RuntimeHandle | null>(null);
   const initialTimeRef = useRef(demoClockMs);
+  const initialBattleRef = useRef(battle);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
@@ -469,12 +518,15 @@ export function ExpeditionStage({
       const sceneParts = makeScene();
       app.stage.addChild(sceneParts.scene);
       let timeMs = initialTimeRef.current;
+      let activeBattle = initialBattleRef.current;
 
       const resize = () => {
         const width = Math.max(host.clientWidth, 1);
         const height = Math.max(host.clientHeight, 1);
         app.renderer.resize(width, height);
-        const scale = Math.max(width / WORLD_WIDTH, height / WORLD_HEIGHT);
+        // The entire skirmish lane must remain visible in a narrow Codex panel;
+        // preserve the 960×420 combat composition instead of cropping its foes.
+        const scale = Math.min(width / WORLD_WIDTH, height / WORLD_HEIGHT);
         sceneParts.scene.scale.set(scale);
         sceneParts.scene.position.set(
           Math.round((width - WORLD_WIDTH * scale) / 2),
@@ -484,10 +536,21 @@ export function ExpeditionStage({
 
       const updateScene = () => {
         const seconds = timeMs / 1_000;
-        sceneParts.hammerpaw.y = 329 + Math.sin(seconds * 3.1) * (reducedMotion ? 0.5 : 3.5);
-        sceneParts.hammerpaw.rotation = Math.sin(seconds * 1.5) * (reducedMotion ? 0 : 0.012);
+        const combatBeat = Math.max(0, Math.sin(seconds * 4.2));
+        const enemyBeat = Math.max(0, Math.sin(seconds * 4.2 + Math.PI));
+        const leadLunge = reducedMotion ? 0 : combatBeat * 42;
+        sceneParts.hammerpaw.x = 442 + leadLunge;
+        sceneParts.hammerpaw.y = 329 + Math.sin(seconds * 3.1) * (reducedMotion ? 0.5 : 3.5) - combatBeat * (reducedMotion ? 0 : 5);
+        sceneParts.hammerpaw.rotation = Math.sin(seconds * 1.5) * (reducedMotion ? 0 : 0.012) - combatBeat * 0.035;
+        sceneParts.swiftwing.x = 582 + combatBeat * (reducedMotion ? 0 : 28);
         sceneParts.swiftwing.y = 289 + Math.sin(seconds * 2.5 + 1.3) * (reducedMotion ? 0.7 : 7);
-        sceneParts.swiftwing.rotation = Math.sin(seconds * 1.8) * (reducedMotion ? 0 : 0.018);
+        sceneParts.swiftwing.rotation = Math.sin(seconds * 1.8) * (reducedMotion ? 0 : 0.018) + combatBeat * 0.05;
+        sceneParts.briarback.x = 757 + enemyBeat * (reducedMotion ? 0 : -19);
+        sceneParts.briarback.y = 319 + Math.sin(seconds * 2.2 + 1) * (reducedMotion ? 0.5 : 3);
+        sceneParts.briarback.rotation = enemyBeat * -0.05;
+        sceneParts.briarback.tint = activeBattle.elite ? 0xffe4a0 : 0xffffff;
+        sceneParts.clash.alpha = reducedMotion ? 0.25 : combatBeat * 0.82;
+        sceneParts.clash.scale.set(0.55 + combatBeat * 0.7);
         sceneParts.cloudA.x = 132 + Math.sin(seconds * 0.12) * (reducedMotion ? 0 : 18);
         sceneParts.cloudB.x = 563 + Math.sin(seconds * 0.1 + 2) * (reducedMotion ? 0 : 12);
         const bladesA = sceneParts.windmillA.getChildByLabel("windmill-blades");
@@ -507,6 +570,10 @@ export function ExpeditionStage({
           timeMs = nextTimeMs;
           updateScene();
           app.render();
+        },
+        setBattle(nextBattle) {
+          activeBattle = nextBattle;
+          updateScene();
         },
       };
 
@@ -533,6 +600,11 @@ export function ExpeditionStage({
   useEffect(() => {
     runtimeRef.current?.setTime(demoClockMs);
   }, [demoClockMs]);
+
+  useEffect(() => {
+    initialBattleRef.current = battle;
+    runtimeRef.current?.setBattle(battle);
+  }, [battle]);
 
   return (
     <div

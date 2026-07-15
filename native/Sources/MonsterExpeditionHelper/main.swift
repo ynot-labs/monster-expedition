@@ -20,6 +20,7 @@ private func widgetHTML() -> String {
 }
 
 private func launchGUIAppIfBundled() {
+    if ProcessInfo.processInfo.environment["MONSTER_EXPEDITION_DISABLE_GUI_LAUNCH"] == "1" { return }
     let bundleURL = Bundle.main.bundleURL
     guard bundleURL.pathExtension == "app" else { return }
     let process = Process()
@@ -31,8 +32,10 @@ private func launchGUIAppIfBundled() {
 private func makeTransport(
     store: SQLiteSnapshotStore,
     capability: String
-) -> ([String: Any]) throws -> [String: Any] {
-    let service = GameRPCService(store: store, requiredCapabilityKey: capability)
+) throws -> (([String: Any]) throws -> [String: Any]) {
+    let codexLink = try CodexLinkManager(store: store)
+    try codexLink.startIfConfigured()
+    let service = GameRPCService(store: store, requiredCapabilityKey: capability, codexLink: codexLink)
     let socketURL = store.databaseURL.deletingLastPathComponent().appendingPathComponent("runtime.sock")
     var didAttemptLaunch = false
     return { original in
@@ -98,7 +101,7 @@ if arguments.contains("--mcp-stdio") || arguments.contains("--rpc-stdio") || arg
     do {
         let store = try SQLiteSnapshotStore()
         let capability = try CapabilityKeyStore.getOrCreate()
-        let transport = makeTransport(store: store, capability: capability)
+        let transport = try makeTransport(store: store, capability: capability)
         if arguments.contains("--mcp-stdio") {
             runMCPStdio(transport: transport)
         } else if arguments.contains("--rpc-stdio") {

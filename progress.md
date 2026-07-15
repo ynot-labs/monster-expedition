@@ -34,3 +34,14 @@ Original prompt: Implement the approved “Monster Expedition / 怪兽远征：�
 - Published the public source repository and GitHub Pages installation site. The current GitHub Actions CI run validates TypeScript, 7 Node core tests, the MCP integration test, Xcode-compatible XCTest coverage, package construction, and ad-hoc signature verification.
 - Updated the packaged app to embed its Node 24 runtime plus a single-file MCP server. The installed-plugin launch path uses that runtime first, so public players do not need Node; an MCP initialization smoke test now runs in both CI and the signed-release workflow.
 - Verification completed locally: TypeScript typecheck, 7 Node tests, MCP integration test, 6 Swift tests, plugin validators, `npm run check`, `npm run package:app`, `codesign --verify`, browser interaction checks, and visual inspection of English and Chinese Pixi screenshots.
+
+## 2026-07-16 redesign update
+
+- The packaged runtime is being simplified to the Swift Helper as the only game authority; the 112 MB embedded Node runtime and bundled server are no longer part of the app package.
+- The Codex panel now adapts the compact native snapshot into an always-running auto-battle view: visible wild foe, health bar, wave/elite state, attack animation, XP/Gold feed, and live team levels. It continues to expose deterministic text and time hooks for visual checks.
+- First Pixi battle inspection found the 960×420 lane was cropped in a shallow panel. The stage now uses a contain scale so all three combatants remain visible; re-run screenshot inspection after the next build.
+- Re-ran the Playwright game client and visually inspected the corrected battle screenshot: Hammerpaw, Swiftwing, Briarback, wave/health HUD, Bond progress, reward prompt, and party chips are all visible with no browser-console errors.
+- The native Pet now renders the live game state and a second, content-free Codex activity line, plus distinct positive dots/spark/question/star/retry visual treatments. The obsolete Node-to-Pet bridge is no longer read.
+- Native package validation now passes through actual MCP initialize, tools/list, and open calls. The ad-hoc app is 1.6 MB and ships only the signed Helper plus static panel resource (no embedded Node runtime).
+- Added native tests for the auto-battle idle tick, marked OTel configuration rollback, strict `codex.sse_event → response.completed` token parsing/deduplication, and a real loopback OTLP/HTTP payload. The HTTP framing parser was corrected during this test so local Token rewards now work end to end.
+- Final verification: `npm run check` is green (7 TypeScript game tests, MCP integration, and 11 Swift tests), the plugin manifest validates, the packaged native Helper completes MCP initialize/tools-list/open smoke tests, ad-hoc signature verification passes, and a fresh compressed DMG builds successfully.

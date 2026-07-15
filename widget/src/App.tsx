@@ -20,6 +20,7 @@ type CodexLinkState =
   | "connected"
   | "config-conflict"
   | "unavailable";
+type WorkState = "idle" | "responding" | "tool-running" | "awaiting-approval" | "completed" | "failed";
 type GearSlot = "charm" | "harness" | "crest" | "talisman";
 type GearQuality = "common" | "refined" | "legendary";
 
@@ -55,6 +56,16 @@ interface PendingChoice {
   type: "gear_reward" | "trait_reward";
   source: "bond_burst" | "challenge" | "gear_upgrade";
   options: GearItem[];
+}
+
+interface BattleState {
+  wave: number;
+  elite: boolean;
+  enemyName: string;
+  enemyHealth: number;
+  enemyMaxHealth: number;
+  attackPhase: number;
+  workState: WorkState;
 }
 
 interface GameSnapshot {
@@ -116,6 +127,7 @@ interface GameSnapshot {
   pendingEvents: unknown[];
   completed: boolean;
   demoClockMs: number;
+  battle: BattleState;
 }
 
 type Translator = (key: MessageKey, values?: Record<string, string | number>) => string;
@@ -241,7 +253,7 @@ function makeDemoSnapshot(): GameSnapshot {
       level: 4,
       xp: 184,
       unspentSkillPoints: 2,
-      unlockedNodeIds: ["trainer.duo"],
+      unlockedNodeIds: ["dual-command"],
       command: "rallying_whistle",
     },
     monsters: {
@@ -320,6 +332,15 @@ function makeDemoSnapshot(): GameSnapshot {
     pendingEvents: [],
     completed: false,
     demoClockMs: 42 * 60_000,
+    battle: {
+      wave: 8,
+      elite: false,
+      enemyName: "Briarback",
+      enemyHealth: 41,
+      enemyMaxHealth: 92,
+      attackPhase: 0.48,
+      workState: "idle",
+    },
   };
 }
 
@@ -395,6 +416,129 @@ function totalNumericValues(value: unknown): number {
   return Object.values(value).reduce<number>((total, entry) => total + asNumber(entry), 0);
 }
 
+function asWorkState(value: unknown): WorkState {
+  return value === "responding" || value === "tool-running" || value === "awaiting-approval" || value === "completed" || value === "failed"
+    ? value
+    : "idle";
+}
+
+/**
+ * The public Helper deliberately keeps its persistent save compact. This
+ * adapter turns that authoritative local snapshot into the panel's richer,
+ * presentational battle view—without adding another gameplay server.
+ */
+function normalizeNativeSnapshot(candidate: Record<string, unknown>): GameSnapshot {
+  const demo = makeDemoSnapshot();
+  const seconds = Math.max(0, asNumber(candidate.expeditionSeconds));
+  const revision = asNumber(candidate.revision);
+  const wave = Math.floor(seconds / 6) + 1;
+  const attackPhase = (seconds % 6) / 6;
+  const elite = wave % 5 === 0;
+  const enemyMaxHealth = (elite ? 178 : 94) + Math.min(130, wave * 6);
+  const enemyHealth = Math.max(1, Math.ceil(enemyMaxHealth * (1 - attackPhase)));
+  const leadMonsterId = typeof candidate.leadMonsterID === "string" ? candidate.leadMonsterID : "hammerpaw";
+  const partnerMonsterId = typeof candidate.partnerMonsterID === "string" ? candidate.partnerMonsterID : null;
+  const activeMonsterIds = [leadMonsterId, partnerMonsterId]
+    .filter((id): id is MonsterRecord["speciesId"] => id === "hammerpaw" || id === "swiftwing" || id === "mosshide" || id === "bellhorn");
+  const trainerXP = Math.max(0, asNumber(candidate.trainerXP));
+  const trainerLevel = 1 + Math.floor(trainerXP / 120);
+  const routeIndex = Math.min(2, Math.floor(seconds / (8 * 60 * 60)));
+  const locale: Locale = isRecord(candidate.preferences) && candidate.preferences.locale === "zh-CN" ? "zh-CN" : "en";
+  const codexState: CodexLinkState = candidate.codexLinkState === "connected" || candidate.codexLinkState === "restart-required" || candidate.codexLinkState === "config-conflict" || candidate.codexLinkState === "unavailable"
+    ? candidate.codexLinkState
+    : "not-configured";
+  const workState = asWorkState(candidate.workState);
+  const monsters = { ...demo.monsters };
+  (Object.keys(monsters) as MonsterRecord["speciesId"][]).forEach((id) => {
+    const active = activeMonsterIds.includes(id);
+    monsters[id] = {
+      ...demo.monsters[id],
+      speciesId: id,
+      name: demo.monsters[id]?.name ?? null,
+      befriended: active || (id === "mosshide" && seconds >= 60 * 60) || (id === "bellhorn" && seconds >= 16 * 60 * 60),
+      level: active ? Math.max(1, trainerLevel - (id === leadMonsterId ? 0 : 1)) : 1,
+      xp: active ? trainerXP : 0,
+      encounterAttempts: id === "swiftwing" && !partnerMonsterId ? Math.min(2, Math.floor(seconds / 80)) : 0,
+    };
+  });
+  const bondCharges = Math.max(0, asNumber(candidate.bondCharges));
+  const pendingRewards = Math.max(0, asNumber(candidate.pendingRewards));
+  const routeNames = ["windmill-plains", "meadow-gate", "ridge-path"];
+  const now = new Date().toISOString();
+  return {
+    ...demo,
+    schemaVersion: 2,
+    revision,
+    createdAt: now,
+    lastSimulatedAt: typeof candidate.lastSyncedAt === "string" ? candidate.lastSyncedAt : now,
+    elapsed: { realMs: seconds * 1_000, effectiveMs: seconds * 1_000 },
+    locale,
+    preferences: {
+      locale,
+      soundEnabled: !(isRecord(candidate.preferences) && candidate.preferences.muted === true),
+      reducedMotion: isRecord(candidate.preferences) && candidate.preferences.reducedMotion === true,
+      displayMode: "fullscreen",
+    },
+    codexLink: { state: codexState },
+    trainer: {
+      name: null,
+      level: trainerLevel,
+      xp: trainerXP,
+      unspentSkillPoints: Math.max(0, Math.floor(trainerLevel / 2) - (partnerMonsterId ? 1 : 0)),
+      unlockedNodeIds: partnerMonsterId ? ["dual-command"] : [],
+      command: "rallying_whistle",
+    },
+    monsters,
+    team: {
+      activeMonsterIds: activeMonsterIds.length ? activeMonsterIds : ["hammerpaw"],
+      leadMonsterId,
+      maxSlots: partnerMonsterId ? 2 : 1,
+      synergy: partnerMonsterId ? "break_pursuit" : "none",
+    },
+    resources: {
+      gold: Math.max(0, asNumber(candidate.gold)),
+      gearMaterials: Math.max(0, asNumber(candidate.gearMaterials)),
+      speciesObservation: Math.floor(seconds / 30),
+    },
+    expedition: {
+      routeId: typeof candidate.routeID === "string" ? candidate.routeID : (routeNames[routeIndex] ?? routeNames[0]!),
+      routeIndex,
+      progress: Math.min(0.985, (seconds % (8 * 60 * 60)) / (8 * 60 * 60)),
+      status: elite ? "elite" : "auto-battle",
+      completedRouteIds: routeNames.slice(0, routeIndex),
+      bossInsight: 0,
+      activeChallenge: elite ? { wave, type: "elite" } : null,
+    },
+    gear: { inventory: structuredClone(DEMO_GEAR), equipped: demo.gear.equipped },
+    camp: {
+      unlockedNodeIds: seconds >= 60 * 60 ? ["scouting-paths"] : [],
+      resetAvailable: true,
+      spentGold: 0,
+    },
+    bond: {
+      threshold: 100_000,
+      currentTokens: Math.max(0, asNumber(candidate.tokenProgress)),
+      charges: bondCharges,
+      maxCharges: 2,
+      totalAcceptedTokens: bondCharges * 100_000 + Math.max(0, asNumber(candidate.tokenProgress)),
+    },
+    pendingEncounters: !partnerMonsterId && seconds > 60 ? [{ id: "swiftwing-first", speciesId: "swiftwing" }] : [],
+    pendingChoices: pendingRewards > 0 ? [{ ...structuredClone(DEMO_REWARD), id: `native-reward-${revision}` }] : [],
+    pendingEvents: [],
+    completed: false,
+    demoClockMs: seconds * 1_000,
+    battle: {
+      wave,
+      elite,
+      enemyName: elite ? "Ridgewarden" : "Briarback",
+      enemyHealth,
+      enemyMaxHealth,
+      attackPhase,
+      workState,
+    },
+  };
+}
+
 function normalizeSnapshot(raw: unknown): GameSnapshot | null {
   if (!isRecord(raw)) return null;
   const wrapper = raw;
@@ -404,6 +548,7 @@ function normalizeSnapshot(raw: unknown): GameSnapshot | null {
       ? wrapper.game
       : wrapper;
   if (typeof candidate.revision !== "number") return null;
+  if (typeof candidate.expeditionSeconds === "number") return normalizeNativeSnapshot(candidate);
 
   const demo = makeDemoSnapshot();
   const rawPreferences = isRecord(candidate.preferences) ? candidate.preferences : {};
@@ -533,6 +678,15 @@ function normalizeSnapshot(raw: unknown): GameSnapshot | null {
     pendingEvents: Array.isArray(candidate.pendingEvents) ? candidate.pendingEvents : [],
     completed: candidate.completed === true,
     demoClockMs: isRecord(candidate.elapsed) ? asNumber(candidate.elapsed.effectiveMs) : demo.demoClockMs,
+    battle: {
+      wave: asNumber(isRecord(candidate.battle) ? candidate.battle.wave : undefined, demo.battle.wave),
+      elite: isRecord(candidate.battle) && candidate.battle.elite === true,
+      enemyName: isRecord(candidate.battle) && typeof candidate.battle.enemyName === "string" ? candidate.battle.enemyName : demo.battle.enemyName,
+      enemyHealth: asNumber(isRecord(candidate.battle) ? candidate.battle.enemyHealth : undefined, demo.battle.enemyHealth),
+      enemyMaxHealth: asNumber(isRecord(candidate.battle) ? candidate.battle.enemyMaxHealth : undefined, demo.battle.enemyMaxHealth),
+      attackPhase: asNumber(isRecord(candidate.battle) ? candidate.battle.attackPhase : undefined, demo.battle.attackPhase),
+      workState: asWorkState(isRecord(candidate.battle) ? candidate.battle.workState : undefined),
+    },
   };
 }
 
@@ -637,6 +791,29 @@ function StageParty({ snapshot, t }: { snapshot: GameSnapshot; t: Translator }) 
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function BattleHUD({ snapshot, t }: { snapshot: GameSnapshot; t: Translator }) {
+  const { battle } = snapshot;
+  const health = Math.max(0, Math.min(100, (battle.enemyHealth / Math.max(1, battle.enemyMaxHealth)) * 100));
+  const enemyName = t(battle.elite ? "battle.eliteEnemy" : "battle.enemy");
+  return (
+    <div className={`battle-hud${battle.elite ? " is-elite" : ""}`} aria-live="polite">
+      <div className="battle-hud-top">
+        <span>{battle.elite ? t("battle.elite") : t("battle.auto")}</span>
+        <strong>{t("battle.wave", { wave: battle.wave })}</strong>
+      </div>
+      <div className="enemy-status">
+        <div><strong>{enemyName}</strong><small>{battle.enemyHealth} / {battle.enemyMaxHealth}</small></div>
+        <span className="enemy-health"><i style={{ width: `${health}%` }} /></span>
+      </div>
+      <div className="battle-feed">
+        <span className="combat-spark" aria-hidden="true" />
+        <strong>{battle.workState === "idle" ? t("battle.attack") : t("battle.working")}</strong>
+        <small>{t("battle.loot", { xp: snapshot.team.activeMonsterIds.length * 4, gold: 2 })}</small>
+      </div>
     </div>
   );
 }
@@ -979,7 +1156,7 @@ function InlineLauncher({ snapshot, t, locale, onLocale, onMode }: { snapshot: G
   return (
     <main className="inline-launcher">
       <section className="inline-scene">
-        <ExpeditionStage ariaLabel={t("stage.aria")} demoClockMs={snapshot.demoClockMs} reducedMotion={snapshot.preferences.reducedMotion} variant="compact" />
+        <ExpeditionStage ariaLabel={t("stage.aria")} demoClockMs={snapshot.demoClockMs} reducedMotion={snapshot.preferences.reducedMotion} battle={snapshot.battle} variant="compact" />
         <div className="inline-scene-label"><span>{t("stage.traveling")}</span><strong>{t("stage.route")}</strong></div>
         <StageParty snapshot={snapshot} t={t} />
       </section>
@@ -1013,6 +1190,7 @@ export function App() {
   const tabRef = useRef(activeTab);
   const modeRef = useRef(currentMode);
   const appRef = useRef<McpApp | null>(null);
+  const syncInFlightRef = useRef(false);
   const systemReducedMotion = usePrefersReducedMotion();
 
   const commitSnapshot = useCallback((next: GameSnapshot) => {
@@ -1093,8 +1271,8 @@ export function App() {
     const activeApp = appRef.current;
     if (!activeApp) return null;
     const result = await activeApp.callServerTool({ name, arguments: argumentsValue });
-    if (result.isError) throw new Error(name);
     applyToolSnapshot(result.structuredContent);
+    if (result.isError) throw new Error(name);
     return result;
   }, [applyToolSnapshot]);
 
@@ -1117,11 +1295,13 @@ export function App() {
   }, [callTool, snapshot.pendingEvents, snapshot.revision]);
 
   const syncGame = useCallback(async () => {
+    if (syncInFlightRef.current) return;
     if (!appRef.current) {
       setSyncState("synced");
       window.setTimeout(() => setSyncState("idle"), 1_500);
       return;
     }
+    syncInFlightRef.current = true;
     setSyncState("syncing");
     try {
       const current = snapshotRef.current;
@@ -1133,12 +1313,16 @@ export function App() {
       window.setTimeout(() => setSyncState("idle"), 1_500);
     } catch {
       setSyncState("failed");
+    } finally {
+      syncInFlightRef.current = false;
     }
   }, [callTool]);
 
   useEffect(() => {
     if (!app || !hostReady) return;
     void syncGame();
+    const timer = window.setInterval(() => void syncGame(), 2_250);
+    return () => window.clearInterval(timer);
   }, [app, hostReady, syncGame]);
 
   const optimisticAct = useCallback(<T extends Record<string, unknown>>(
@@ -1242,6 +1426,7 @@ export function App() {
       },
       bond: current.bond,
       codexLink: current.codexLink.state,
+      battle: current.battle,
       preferences: current.preferences,
       pendingReward: pending ? { id: pending.id, optionIds: pending.options.map((option) => option.id), open: rewardOpen } : null,
       availableActions: [
@@ -1271,6 +1456,11 @@ export function App() {
         },
         expedition: { ...current.expedition, progress: nextProgress },
         demoClockMs: current.demoClockMs + safeMs,
+        battle: {
+          ...current.battle,
+          wave: current.battle.wave + Math.floor(safeMs / 6_000),
+          attackPhase: ((current.battle.attackPhase + safeMs / 6_000) % 1),
+        },
       };
       commitSnapshot(next);
       return renderGameToText();
@@ -1309,7 +1499,7 @@ export function App() {
 
   const unlockCamp = useCallback((nodeId: string, cost: number) => {
     if (snapshotRef.current.resources.gold < cost) return;
-    optimisticAct({ type: "unlock_camp_node", nodeId }, (current) => ({
+    optimisticAct({ type: "unlock_camp_node", nodeId, cost }, (current) => ({
       ...current,
       resources: { ...current.resources, gold: current.resources.gold - cost },
       camp: {
@@ -1422,11 +1612,12 @@ export function App() {
       </header>
 
       <section className="stage-frame">
-        <ExpeditionStage ariaLabel={t("stage.aria")} demoClockMs={snapshot.demoClockMs} reducedMotion={effectiveReducedMotion} />
+        <ExpeditionStage ariaLabel={t("stage.aria")} demoClockMs={snapshot.demoClockMs} reducedMotion={effectiveReducedMotion} battle={snapshot.battle} />
         <div className="stage-vignette" aria-hidden="true" />
         <div className="chapter-plaque"><span>{t("stage.traveling")}</span><strong>{t("stage.route")}</strong><small>{t("stage.time")}</small></div>
         <button className="bond-stage-button" onClick={() => setActiveTab("codex")}><BondRing snapshot={snapshot} t={t} /></button>
         <StageParty snapshot={snapshot} t={t} />
+        <BattleHUD snapshot={snapshot} t={t} />
         <div className="encounter-flag"><span aria-hidden="true" /><div><small>{t("stage.next")}</small><strong>{t("stage.nextValue")}</strong></div></div>
         {pendingChoice && <button className="stage-treasure" onClick={() => setRewardOpen(true)}><i aria-hidden="true" /><span>{t("bond.pending")}</span></button>}
         <div className="stage-route-progress"><span style={{ width: `${snapshot.expedition.progress * 100}%` }} /><i style={{ left: `${snapshot.expedition.progress * 100}%` }} /></div>

@@ -22,6 +22,7 @@ final class PetScene: SKScene {
         let signature = [
             String(snapshot.revision), snapshot.petState.rawValue,
             snapshot.leadMonsterID, snapshot.preferences.locale.rawValue,
+            snapshot.workState?.rawValue ?? WorkState.idle.rawValue,
             String(reducedMotion)
         ].joined(separator: ":")
         guard signature != renderedSignature else { return }
@@ -36,24 +37,35 @@ final class PetScene: SKScene {
         addStatusLabel(snapshot: snapshot)
         addBondCharm(to: art, snapshot: snapshot, reducedMotion: reducedMotion)
         decorate(state: snapshot.petState, art: art, reducedMotion: reducedMotion)
+        decorateWork(state: snapshot.workState, art: art, reducedMotion: reducedMotion)
     }
 
     private func addStatusLabel(snapshot: GameSnapshot) {
-        let bubble = SKShapeNode(rectOf: CGSize(width: 232, height: 32), cornerRadius: 16)
-        bubble.position = CGPoint(x: 0, y: 88)
+        let bubble = SKShapeNode(rectOf: CGSize(width: 244, height: 46), cornerRadius: 16)
+        bubble.position = CGPoint(x: 0, y: 91)
         bubble.fillColor = NSColor(calibratedWhite: 0.99, alpha: 0.94)
         bubble.strokeColor = NSColor(calibratedRed: 0.20, green: 0.16, blue: 0.12, alpha: 0.85)
         bubble.lineWidth = 2
         bubble.zPosition = 30
         addChild(bubble)
 
-        let label = SKLabelNode(fontNamed: "Avenir Next Demi Bold")
-        label.text = GameCopy.petStatus(snapshot.petState, locale: snapshot.preferences.locale)
-        label.fontSize = snapshot.preferences.locale == .english ? 13 : 14
-        label.fontColor = NSColor(calibratedRed: 0.18, green: 0.14, blue: 0.10, alpha: 1)
-        label.verticalAlignmentMode = .center
-        label.horizontalAlignmentMode = .center
-        bubble.addChild(label)
+        let status = SKLabelNode(fontNamed: "Avenir Next Demi Bold")
+        status.text = GameCopy.petStatus(snapshot.petState, locale: snapshot.preferences.locale)
+        status.fontSize = snapshot.preferences.locale == .english ? 12 : 13
+        status.fontColor = NSColor(calibratedRed: 0.18, green: 0.14, blue: 0.10, alpha: 1)
+        status.position.y = 9
+        status.verticalAlignmentMode = .center
+        status.horizontalAlignmentMode = .center
+        bubble.addChild(status)
+
+        let activity = SKLabelNode(fontNamed: "Avenir Next Medium")
+        activity.text = GameCopy.workStatus(snapshot.workState, locale: snapshot.preferences.locale)
+        activity.fontSize = snapshot.preferences.locale == .english ? 9 : 10
+        activity.fontColor = NSColor(calibratedRed: 0.37, green: 0.42, blue: 0.34, alpha: 1)
+        activity.position.y = -11
+        activity.verticalAlignmentMode = .center
+        activity.horizontalAlignmentMode = .center
+        bubble.addChild(activity)
     }
 
     private func makeHammerpaw() -> SKNode {
@@ -393,6 +405,62 @@ final class PetScene: SKScene {
             if !reducedMotion {
                 link.run(.repeatForever(.sequence([.fadeAlpha(to: 0.45, duration: 0.8), .fadeAlpha(to: 1, duration: 0.8)])))
             }
+        }
+    }
+
+    /// Work activity is a compact, content-free companion signal. It adds a
+    /// pleasant visual response without ever revealing prompt, code, file, or
+    /// session details.
+    private func decorateWork(state: WorkState?, art: SKNode, reducedMotion: Bool) {
+        switch state ?? .idle {
+        case .idle:
+            return
+        case .responding:
+            for index in 0..<3 {
+                let dot = SKShapeNode(circleOfRadius: 5)
+                dot.fillColor = color(0xF3C95D)
+                dot.strokeColor = color(0x5B451C)
+                dot.lineWidth = 2
+                dot.position = CGPoint(x: CGFloat(-13 + index * 13), y: 68)
+                dot.zPosition = 24
+                art.addChild(dot)
+                guard !reducedMotion else { continue }
+                dot.alpha = 0.35
+                dot.run(.repeatForever(.sequence([
+                    .wait(forDuration: Double(index) * 0.16),
+                    .fadeAlpha(to: 1, duration: 0.2),
+                    .fadeAlpha(to: 0.35, duration: 0.35)
+                ])))
+            }
+        case .toolRunning:
+            let spark = label("✦", size: 30, color: color(0xF5CE5D))
+            spark.position = CGPoint(x: 82, y: 38)
+            art.addChild(spark)
+            guard !reducedMotion else { return }
+            spark.run(.repeatForever(.rotate(byAngle: .pi * 2, duration: 1.15)))
+        case .awaitingApproval:
+            let question = label("?", size: 31, color: color(0x4D7890))
+            question.position = CGPoint(x: 80, y: 45)
+            art.addChild(question)
+            guard !reducedMotion else { return }
+            question.run(.repeatForever(.sequence([.moveBy(x: 0, y: 5, duration: 0.45), .moveBy(x: 0, y: -5, duration: 0.45)])))
+        case .completed:
+            for point in [CGPoint(x: -77, y: 27), CGPoint(x: 73, y: 24)] {
+                let star = label("✦", size: 22, color: color(0xFFD45C))
+                star.position = point
+                art.addChild(star)
+                guard !reducedMotion else { continue }
+                star.run(.repeatForever(.sequence([
+                    .group([.scale(to: 1.35, duration: 0.42), .fadeAlpha(to: 0.38, duration: 0.42)]),
+                    .group([.scale(to: 0.8, duration: 0.42), .fadeAlpha(to: 1, duration: 0.42)])
+                ])))
+            }
+        case .failed:
+            let retry = label("↻", size: 29, color: color(0xC56151))
+            retry.position = CGPoint(x: 79, y: 43)
+            art.addChild(retry)
+            guard !reducedMotion else { return }
+            retry.run(.repeatForever(.rotate(byAngle: -.pi * 2, duration: 1.4)))
         }
     }
 

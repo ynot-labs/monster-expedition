@@ -24,6 +24,17 @@ public enum PetState: String, Codable, CaseIterable, Sendable {
     case linkUnavailable = "link-unavailable"
 }
 
+/// A privacy-preserving summary of the current Codex activity.  It deliberately
+/// carries no prompt, response, file, command, workspace, or session identifier.
+public enum WorkState: String, Codable, CaseIterable, Sendable {
+    case idle
+    case responding
+    case toolRunning = "tool-running"
+    case awaitingApproval = "awaiting-approval"
+    case completed
+    case failed
+}
+
 public struct Preferences: Codable, Equatable, Sendable {
     public var locale: Locale
     public var reducedMotion: Bool
@@ -59,6 +70,8 @@ public struct GameSnapshot: Codable, Equatable, Sendable {
     public var gearMaterials: Int
     public var preferences: Preferences
     public var lastSyncedAt: Date
+    public var workState: WorkState?
+    public var workUpdatedAt: Date?
 
     public init(
         revision: Int = 0,
@@ -75,7 +88,9 @@ public struct GameSnapshot: Codable, Equatable, Sendable {
         trainerXP: Int = 0,
         gearMaterials: Int = 0,
         preferences: Preferences = Preferences(),
-        lastSyncedAt: Date = Date()
+        lastSyncedAt: Date = Date(),
+        workState: WorkState? = nil,
+        workUpdatedAt: Date? = nil
     ) {
         self.revision = revision
         self.expeditionSeconds = expeditionSeconds
@@ -92,6 +107,8 @@ public struct GameSnapshot: Codable, Equatable, Sendable {
         self.gearMaterials = gearMaterials
         self.preferences = preferences
         self.lastSyncedAt = lastSyncedAt
+        self.workState = workState
+        self.workUpdatedAt = workUpdatedAt
     }
 }
 
@@ -114,6 +131,23 @@ public enum GameCopy {
         case (.simplifiedChinese, .training): "正在研究足迹"
         case (.simplifiedChinese, .offlineReturn): "欢迎回来！"
         case (.simplifiedChinese, .linkUnavailable): "Codex连接暂不可用"
+        }
+    }
+
+    public static func workStatus(_ state: WorkState?, locale: Locale) -> String {
+        switch (locale, state ?? .idle) {
+        case (.english, .idle): "Ready to explore"
+        case (.english, .responding): "Codex is responding"
+        case (.english, .toolRunning): "A tool is running"
+        case (.english, .awaitingApproval): "Waiting for approval"
+        case (.english, .completed): "Response completed"
+        case (.english, .failed): "Response needs a retry"
+        case (.simplifiedChinese, .idle): "准备出发"
+        case (.simplifiedChinese, .responding): "Codex 正在响应"
+        case (.simplifiedChinese, .toolRunning): "正在执行工具"
+        case (.simplifiedChinese, .awaitingApproval): "等待授权"
+        case (.simplifiedChinese, .completed): "响应已完成"
+        case (.simplifiedChinese, .failed): "响应需要重试"
         }
     }
 

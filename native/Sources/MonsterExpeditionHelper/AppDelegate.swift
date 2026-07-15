@@ -5,33 +5,30 @@ import MonsterExpeditionCore
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var store: SQLiteSnapshotStore?
     private var rpcServer: UnixRPCServer?
+    private var codexLink: CodexLinkManager?
     private var petWindowController: PetWindowController?
     private var pollTimer: Timer?
     private var lastRenderedRevision = -1
-    private var lastBridgeUpdate: Date?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         do {
             NSApp.setActivationPolicy(.accessory)
             let store = try SQLiteSnapshotStore()
             let capability = try CapabilityKeyStore.getOrCreate()
-            let service = GameRPCService(store: store, requiredCapabilityKey: capability)
+            let codexLink = try CodexLinkManager(store: store)
+            try codexLink.startIfConfigured()
+            let service = GameRPCService(store: store, requiredCapabilityKey: capability, codexLink: codexLink)
             let runtimeURL = store.databaseURL.deletingLastPathComponent().appendingPathComponent("runtime.sock")
             let server = UnixRPCServer(socketURL: runtimeURL) { service.handle(line: $0) }
             try server.start()
 
-            let snapshot: GameSnapshot
-            if let bridge = PetBridgeSnapshot.load() {
-                snapshot = bridge.gameSnapshot()
-                lastBridgeUpdate = bridge.updatedAt
-            } else {
-                snapshot = try store.load()
-            }
+            let snapshot = try store.load()
             let controller = PetWindowController(initialSnapshot: snapshot)
             controller.show()
 
             self.store = store
             self.rpcServer = server
+            self.codexLink = codexLink
             self.petWindowController = controller
             lastRenderedRevision = snapshot.revision
             pollTimer = Timer.scheduledTimer(timeInterval: 0.35, target: self, selector: #selector(pollSnapshot), userInfo: nil, repeats: true)
@@ -52,18 +49,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pollTimer?.invalidate()
         petWindowController?.savePosition()
         rpcServer?.stop()
+        codexLink?.stopReceiver()
         NSWorkspace.shared.notificationCenter.removeObserver(self)
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
     @objc private func pollSnapshot() {
-        if let bridge = PetBridgeSnapshot.load(), bridge.updatedAt != lastBridgeUpdate {
-            lastBridgeUpdate = bridge.updatedAt
-            lastRenderedRevision = bridge.revision
-            petWindowController?.render(bridge.gameSnapshot())
-            return
-        }
         guard let store, let snapshot = try? store.load() else { return }
         guard snapshot.revision != lastRenderedRevision else { return }
         lastRenderedRevision = snapshot.revision

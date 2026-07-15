@@ -2,65 +2,43 @@ import Foundation
 import Security
 
 public enum CapabilityKeyError: Error, LocalizedError, Sendable {
-    case keychain(OSStatus)
+    case randomGeneration(OSStatus)
     case invalidData
 
     public var errorDescription: String? {
         switch self {
-        case .keychain(let status): "Keychain operation failed (\(status))."
-        case .invalidData: "The capability key stored in Keychain is invalid."
+        case .randomGeneration(let status): "Secure local key generation failed (\(status))."
+        case .invalidData: "The local capability key is invalid."
         }
     }
 }
 
 public enum CapabilityKeyStore {
-    private static let service = "com.sillydao.monster-expedition"
-    private static let account = "runtime-capability"
+    private static let filename = "runtime-capability.key"
 
     public static func getOrCreate() throws -> String {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne
-        ]
-
-        var result: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-        if status == errSecSuccess {
-            guard let data = result as? Data,
-                  let key = String(data: data, encoding: .utf8),
-                  !key.isEmpty else {
+        if let override = ProcessInfo.processInfo.environment["MONSTER_EXPEDITION_CAPABILITY_KEY"], !override.isEmpty {
+            return override
+        }
+        let directory = try SQLiteSnapshotStore.defaultApplicationSupportURL()
+        let url = directory.appendingPathComponent(filename)
+        if FileManager.default.fileExists(atPath: url.path) {
+            guard let key = try? String(contentsOf: url, encoding: .utf8)
+                .trimmingCharacters(in: .whitespacesAndNewlines), !key.isEmpty else {
                 throw CapabilityKeyError.invalidData
             }
             return key
-        }
-        guard status == errSecItemNotFound else {
-            throw CapabilityKeyError.keychain(status)
         }
 
         var random = [UInt8](repeating: 0, count: 32)
         let randomStatus = SecRandomCopyBytes(kSecRandomDefault, random.count, &random)
         guard randomStatus == errSecSuccess else {
-            throw CapabilityKeyError.keychain(randomStatus)
+            throw CapabilityKeyError.randomGeneration(randomStatus)
         }
         let key = Data(random).base64EncodedString()
-        let addQuery: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
-            kSecValueData as String: Data(key.utf8)
-        ]
-        let addStatus = SecItemAdd(addQuery as CFDictionary, nil)
-        guard addStatus == errSecSuccess else {
-            // Another process may have won the first-launch race.
-            if addStatus == errSecDuplicateItem {
-                return try getOrCreate()
-            }
-            throw CapabilityKeyError.keychain(addStatus)
-        }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        try Data((key + "\n").utf8).write(to: url, options: .atomic)
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
         return key
     }
 }

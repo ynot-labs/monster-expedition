@@ -98,9 +98,11 @@ public final class MCPBridge: @unchecked Sendable {
                 ])
             }
             let message = response["message"] as? String ?? response["error"] as? String ?? "Local helper error"
+            var structured: [String: Any] = ["error": response["error"] ?? "helper-error"]
+            if let snapshot = response["snapshot"] { structured["snapshot"] = snapshot }
             return jsonRPCResult(id: id, result: [
                 "content": [["type": "text", "text": message]],
-                "structuredContent": ["error": response["error"] ?? "helper-error"],
+                "structuredContent": structured,
                 "isError": true
             ])
         } catch {

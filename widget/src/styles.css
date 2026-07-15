@@ -612,6 +612,36 @@ p {
   gap: 7px;
 }
 
+.battle-hud {
+  position: absolute;
+  z-index: 12;
+  top: 21px;
+  left: 50%;
+  width: min(300px, calc(100% - 600px));
+  min-width: 238px;
+  padding: 8px 10px 9px;
+  border: 2px solid var(--deep-ink);
+  border-radius: 13px 16px 12px 15px;
+  color: #fff9df;
+  background: rgba(23, 54, 40, 0.91);
+  box-shadow: 3px 4px 0 rgba(22, 42, 34, 0.35);
+  transform: translateX(-50%) rotate(0.35deg);
+}
+.battle-hud.is-elite { border-color: #f3ca67; background: rgba(91, 55, 45, 0.94); box-shadow: 0 0 22px rgba(250, 205, 94, 0.42), 3px 4px 0 rgba(22, 42, 34, 0.35); }
+.battle-hud-top, .enemy-status > div, .battle-feed { display: flex; align-items: center; }
+.battle-hud-top { justify-content: space-between; gap: 10px; }
+.battle-hud-top span { color: #f4c96b; font-size: 8px; font-weight: 900; letter-spacing: 0.1em; text-transform: uppercase; }
+.battle-hud-top strong { font-size: 10px; }
+.enemy-status { margin-top: 5px; }
+.enemy-status > div { justify-content: space-between; gap: 10px; font-size: 10px; }
+.enemy-status small { color: #d5e3d2; font-size: 8px; }
+.enemy-health { display: block; height: 8px; margin-top: 4px; overflow: hidden; border: 1px solid rgba(9, 29, 21, 0.8); border-radius: 999px; background: #8f4d43; box-shadow: inset 0 1px rgba(255,255,255,0.18); }
+.enemy-health i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #f4d066, #8fc57a); transition: width 260ms linear; }
+.battle-feed { gap: 6px; margin-top: 7px; color: #d8e8d1; font-size: 8px; }
+.battle-feed strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.battle-feed small { margin-left: auto; color: #f2d177; white-space: nowrap; font-weight: 800; }
+.combat-spark { width: 8px; height: 8px; flex: 0 0 auto; background: #ffdf74; clip-path: polygon(50% 0, 64% 36%, 100% 50%, 64% 64%, 50% 100%, 36% 64%, 0 50%, 36% 36%); animation: combat-spark 0.75s ease-in-out infinite alternate; }
+
 .party-chip {
   min-width: 132px;
   gap: 8px;
@@ -1743,6 +1773,7 @@ p {
 @keyframes reward-rise { from { opacity: 0; transform: translateY(24px) scale(0.97); } }
 @keyframes treasure-pulse { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
 @keyframes crest-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+@keyframes combat-spark { from { transform: scale(0.7) rotate(0); opacity: 0.6; } to { transform: scale(1.25) rotate(45deg); opacity: 1; } }
 
 @media (max-width: 1160px) {
   .game-header { grid-template-columns: minmax(220px, 1fr) auto; }
@@ -1792,6 +1823,7 @@ p {
   .bond-stage-button .bond-copy { display: none; }
   .bond-stage-button .bond-ring { width: 52px; height: 52px; }
   .stage-party { left: 12px; bottom: 14px; }
+  .battle-hud { top: 83px; left: auto; right: 12px; width: min(270px, calc(100% - 24px)); min-width: 0; transform: rotate(0.35deg); }
   .encounter-flag { right: 12px; bottom: 14px; padding-right: 8px; }
   .encounter-flag > div { display: none; }
   .stage-treasure { right: 12px; bottom: 63px; padding-right: 8px; }

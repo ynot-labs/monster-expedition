@@ -16,7 +16,8 @@ let package = Package(
             name: "MonsterExpeditionCore",
             linkerSettings: [
                 .linkedLibrary("sqlite3"),
-                .linkedFramework("Security")
+                .linkedFramework("Security"),
+                .linkedFramework("Network")
             ]
         ),
         .executableTarget(

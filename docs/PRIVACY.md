@@ -3,7 +3,7 @@
 Monster Expedition is local-only.
 
 - Game save: local to this Mac.
-- Desktop Pet bridge: local to this Mac, contains only gameplay display fields.
+- Desktop Pet and Codex panel: read the same local game snapshot; the Pet receives only gameplay state and the content-free work state (`responding`, `tool running`, `waiting`, `completed`, or `retry`).
 - Diagnostics: generated locally and never uploaded.
 - Analytics: none.
 - Accounts, cloud saves, ads, payments, and trackers: none.

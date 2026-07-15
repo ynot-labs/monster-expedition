@@ -28,6 +28,12 @@ public final class SQLiteSnapshotStore: @unchecked Sendable {
     private var database: OpaquePointer?
 
     public static func defaultApplicationSupportURL() throws -> URL {
+        // Kept for local smoke tests and isolated development. Public builds do
+        // not set this and always use the documented Application Support path.
+        if let override = ProcessInfo.processInfo.environment["MONSTER_EXPEDITION_DATA_DIR"],
+           !override.isEmpty {
+            return URL(fileURLWithPath: override, isDirectory: true)
+        }
         let root = try FileManager.default.url(
             for: .applicationSupportDirectory,
             in: .userDomainMask,

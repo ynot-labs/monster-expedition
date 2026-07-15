@@ -18,7 +18,7 @@
     "typecheck": "tsc -p tsconfig.widget.json --noEmit && tsc -p tsconfig.server.json --noEmit",
     "test": "tsx --test tests/codex-link.test.ts tests/game-core.test.ts",
     "test:integration": "tsx --test tests/mcp-server.integration.test.ts",
-    "test:packaged-runtime": "node scripts/test-packaged-runtime.mjs",
+    "test:packaged-helper": "node scripts/test-packaged-helper.mjs",
     "test:native": "bash native/scripts/test.sh",
     "validate:plugin": "node scripts/validate-plugin.mjs",
     "check:web": "npm run typecheck && npm run test && npm run build && npm run test:integration && npm run validate:plugin",
