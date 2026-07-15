@@ -16,7 +16,7 @@
     "package:dmg": "bash scripts/create-dmg.sh",
     "notarize": "bash scripts/notarize.sh",
     "typecheck": "tsc -p tsconfig.widget.json --noEmit && tsc -p tsconfig.server.json --noEmit",
-    "test": "tsx --test tests/*.test.ts",
+    "test": "tsx --test tests/codex-link.test.ts tests/game-core.test.ts",
     "test:integration": "tsx --test tests/mcp-server.integration.test.ts",
     "test:native": "bash native/scripts/test.sh",
     "validate:plugin": "node scripts/validate-plugin.mjs",
