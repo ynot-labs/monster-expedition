@@ -1,6 +1,6 @@
 {
   "name": "monster-expedition",
-  "version": "0.2.0",
+  "version": "0.2.0+codex.20260715232048",
   "description": "A local monster companion idle expedition for Codex.",
   "author": {
     "name": "Monster Expedition"
@@ -12,7 +12,11 @@
     "longDescription": "Lead a two-monster idle expedition, build team synergies, choose gear, and turn locally measured Codex token milestones into celebratory Bond Bursts.",
     "developerName": "Monster Expedition",
     "category": "Other",
-    "capabilities": ["Interactive", "Local-only", "Bilingual"],
+    "capabilities": [
+      "Interactive",
+      "Local-only",
+      "Bilingual"
+    ],
     "brandColor": "#D5963D",
     "defaultPrompt": [
       "Open Monster Expedition.",

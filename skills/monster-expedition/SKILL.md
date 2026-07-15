@@ -5,12 +5,12 @@ description: Open, sync, manage, or diagnose Monster Expedition, a local bilingu
 
 # Monster Expedition
 
-Monster Expedition is English-first, local-only, and playable without a Token connection. Its floating lead monster is rendered by the optional signed macOS Helper; its management interface opens as an MCP App in Codex.
+Monster Expedition is English-first, local-only, and playable without a Token connection. Its floating lead monster is rendered by the optional signed macOS Helper; its playable auto-battle interface opens as an MCP App in Codex. The `.app` alone intentionally shows only the Pet—never imply that it contains a normal game window.
 
 ## Open the experience
 
 1. Call `monster_expedition_open`.
-2. Present the returned widget and let the user click **Open Expedition** to request Codex's larger panel mode.
+2. Present the returned widget and let the user click **Open Expedition** to request Codex's larger panel mode. This is the playable surface: keep the automatic battle lane visible while players manage the team, Gear, Trainer, Camp, and Codex Link tabs.
 3. If the Helper is missing, explain that the game still opens in development mode but the programmable floating Pet requires the signed macOS Helper.
 
 The host owns display mode. Never claim the panel is permanent, and never describe Inline mode as a floating Pet.

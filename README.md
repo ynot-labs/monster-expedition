@@ -39,6 +39,8 @@ native/.build/release/MonsterExpeditionHelper
 
 The Helper is the complete local game authority. The plugin launcher starts it without activating it, then uses its stdio MCP endpoint. The Helper owns the SQLite snapshot and exposes it to both the Codex panel and the desktop Pet, so both surfaces reflect the same leader, battle state, Bond reward, language, and content-free Codex activity.
 
+The Helper intentionally has no standalone game window: launching the `.app` shows the Pet. The playable auto-battle surface is an MCP App panel, opened inside a new Codex task by asking **Open Monster Expedition** after the plugin is installed.
+
 ## Token connection and privacy
 
 The game runs fully without Codex Link. Selecting **Connect Codex** is an explicit opt-in. It creates a time-stamped backup of `~/.codex/config.toml` and appends only its marked OTel block with `log_user_prompt = false` and a `127.0.0.1` endpoint. Existing OTel configuration is never overwritten; the Link instead reports a conflict and the game keeps running.
