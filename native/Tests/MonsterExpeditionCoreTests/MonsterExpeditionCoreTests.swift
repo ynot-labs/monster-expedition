@@ -1,3 +1,4 @@
+#if canImport(Testing)
 import Foundation
 import Testing
 @testable import MonsterExpeditionCore
@@ -150,3 +151,4 @@ private func result(_ response: [String: Any]) -> [String: Any] {
 private func nestedSnapshot(_ response: [String: Any]) -> [String: Any] {
     result(response)["snapshot"] as? [String: Any] ?? [:]
 }
+#endif
