@@ -19,7 +19,6 @@ Original prompt: Implement the approved “Monster Expedition / 怪兽远征：�
 
 ## Pending
 
-- Add the public GitHub remote and publish the first source commit.
 - Configure Apple Developer ID / notarization secrets before attempting a signed public DMG.
 - Run a developer 24-hour canary and an actual Codex-host OTel connection after the plugin is installed.
 
@@ -32,4 +31,5 @@ Original prompt: Implement the approved “Monster Expedition / 怪兽远征：�
 - Added a narrow local Pet bridge. It carries only gameplay display fields from the Node MCP snapshot to the native Pet; it contains no conversation or telemetry content.
 - Added opt-in-only Codex Link configuration with a marked reversible OTel block, config backup, conflict protection, loopback-only receiver, HMAC deduplication, and strict `response.completed` integer-token parsing. It deliberately rejects unknown schemas and preserves an existing user exporter.
 - Added docs, GitHub Pages source, CI, signed-app/DMG/notarization scripts, public marketplace rendering, privacy/terms/install/uninstall notes, and a local ad-hoc app package.
-- Verification completed: TypeScript typecheck, 8 Node tests, MCP integration test, 6 Swift tests, plugin validators, `npm run check`, `npm run package:app`, `codesign --verify`, browser interaction checks, and visual inspection of English and Chinese Pixi screenshots.
+- Published the public source repository and GitHub Pages installation site. The current GitHub Actions CI run validates TypeScript, 7 Node core tests, the MCP integration test, Xcode-compatible XCTest coverage, package construction, and ad-hoc signature verification.
+- Verification completed locally: TypeScript typecheck, 7 Node tests, MCP integration test, 6 Swift tests, plugin validators, `npm run check`, `npm run package:app`, `codesign --verify`, browser interaction checks, and visual inspection of English and Chinese Pixi screenshots.
