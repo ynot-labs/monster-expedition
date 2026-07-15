@@ -1,0 +1,21 @@
+{
+  "name": "monster-expedition-public",
+  "interface": {
+    "displayName": "Monster Expedition"
+  },
+  "plugins": [
+    {
+      "name": "monster-expedition",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/ynot-labs/monster-expedition.git",
+        "ref": "main"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Other"
+    }
+  ]
+}
