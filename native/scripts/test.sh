@@ -5,7 +5,9 @@ cd "$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 
 DEVELOPER_DIR_PATH="$(xcode-select -p 2>/dev/null || true)"
 if printf '%s' "$DEVELOPER_DIR_PATH" | grep -q '/Xcode.app/'; then
-  exec swift test --enable-swift-testing "$@"
+  # GitHub's full Xcode toolchain discovers Swift Testing automatically; the
+  # explicit flag only exists in newer standalone toolchains.
+  exec swift test "$@"
 fi
 
 # The standalone Command Line Tools bundle ships Swift Testing as a framework,
