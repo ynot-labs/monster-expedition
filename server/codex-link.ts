@@ -135,6 +135,7 @@ export class CodexLinkManager {
   readonly #port: number;
   #metadata: CodexLinkMetadata | null = null;
   #server: Server | null = null;
+  #queueTail: Promise<void> = Promise.resolve();
 
   constructor(options: CodexLinkManagerOptions) {
     this.#dataDirectory = options.dataDirectory;
@@ -238,13 +239,20 @@ export class CodexLinkManager {
   }
 
   async drainTokenEvents(): Promise<TokenUsageEvent[]> {
+    return this.#withQueueLock(async () => {
+      const events = await this.#readQueuedEvents();
+      await rm(this.#queuePath, { force: true });
+      return events;
+    });
+  }
+
+  async #readQueuedEvents(): Promise<TokenUsageEvent[]> {
     try {
       const source = await readFile(this.#queuePath, "utf8");
       const parsed: unknown = JSON.parse(source);
       const events = isObject(parsed) && parsed.schemaVersion === 1 && Array.isArray(parsed.events)
         ? parsed.events.filter((event): event is TokenUsageEvent => isObject(event) && typeof event.id === "string" && typeof event.totalTokens === "number")
         : [];
-      await rm(this.#queuePath, { force: true });
       return events;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
@@ -327,10 +335,24 @@ export class CodexLinkManager {
 
   async #appendEvents(events: TokenUsageEvent[]): Promise<void> {
     if (events.length === 0) return;
-    await mkdir(this.#dataDirectory, { recursive: true, mode: 0o700 });
-    const existing = await this.drainTokenEvents();
-    const byID = new Map([...existing, ...events].map((event) => [event.id, event]));
-    const file: TokenQueueFile = { schemaVersion: 1, events: [...byID.values()].slice(-500) };
-    await writeFile(this.#queuePath, `${JSON.stringify(file)}\n`, { encoding: "utf8", mode: 0o600 });
+    await this.#withQueueLock(async () => {
+      await mkdir(this.#dataDirectory, { recursive: true, mode: 0o700 });
+      const existing = await this.#readQueuedEvents();
+      const byID = new Map([...existing, ...events].map((event) => [event.id, event]));
+      const file: TokenQueueFile = { schemaVersion: 1, events: [...byID.values()].slice(-500) };
+      await writeFile(this.#queuePath, `${JSON.stringify(file)}\n`, { encoding: "utf8", mode: 0o600 });
+    });
+  }
+
+  async #withQueueLock<T>(operation: () => Promise<T>): Promise<T> {
+    const previous = this.#queueTail;
+    let release: () => void = () => undefined;
+    this.#queueTail = new Promise<void>((resolve) => { release = resolve; });
+    await previous;
+    try {
+      return await operation();
+    } finally {
+      release();
+    }
   }
 }
