@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "monster-expedition": {
+      "command": "/bin/sh",
+      "args": ["./scripts/launch-mcp.sh"],
+      "cwd": "."
+    }
+  }
+}

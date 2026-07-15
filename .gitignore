@@ -1,0 +1,8 @@
+node_modules/
+dist/
+build/
+output/
+.plugin-data/
+native/.build/
+*.log
+.DS_Store

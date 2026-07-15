@@ -1,0 +1,20 @@
+{
+  "name": "monster-expedition-local",
+  "interface": {
+    "displayName": "Monster Expedition Local"
+  },
+  "plugins": [
+    {
+      "name": "monster-expedition",
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Other"
+    }
+  ]
+}

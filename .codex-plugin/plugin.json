@@ -1,0 +1,24 @@
+{
+  "name": "monster-expedition",
+  "version": "0.2.0",
+  "description": "A local monster companion idle expedition for Codex.",
+  "author": {
+    "name": "Monster Expedition"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Monster Expedition",
+    "shortDescription": "Raise a monster companion while you work in Codex.",
+    "longDescription": "Lead a two-monster idle expedition, build team synergies, choose gear, and turn locally measured Codex token milestones into celebratory Bond Bursts.",
+    "developerName": "Monster Expedition",
+    "category": "Other",
+    "capabilities": ["Interactive", "Local-only", "Bilingual"],
+    "brandColor": "#D5963D",
+    "defaultPrompt": [
+      "Open Monster Expedition.",
+      "Show my expedition and current Bond progress.",
+      "Open Monster Expedition settings."
+    ]
+  },
+  "mcpServers": "./.mcp.json"
+}

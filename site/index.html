@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Monster Expedition</title>
+    <style>
+      :root { color-scheme: light; font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; color: #163b31; background: #fff7db; }
+      body { max-width: 800px; margin: 0 auto; padding: 72px 26px; background: radial-gradient(circle at 85% 10%,#f7d368,transparent 28%), #fff7db; }
+      .crest { width: 72px; height: 72px; border: 3px solid #163b31; border-radius: 50%; display: grid; place-items: center; font-size: 34px; background: #e69949; }
+      h1 { margin-bottom: 8px; font-family: Georgia, "Songti SC", serif; font-size: clamp(2.8rem,8vw,5rem); line-height: .95; }
+      p { font-size: 1.1rem; line-height: 1.6; max-width: 640px; }
+      .rule { padding: 18px 22px; border: 2px solid #163b31; border-radius: 16px; background: #fffdf2; font-weight: 700; }
+      a { color: #164f3d; font-weight: 700; }
+      button { border: 2px solid #163b31; color: #163b31; background: #e69949; padding: 11px 15px; border-radius: 999px; font: inherit; font-weight: 800; cursor: pointer; }
+      .zh { display:none; } html.zh .en { display:none; } html.zh .zh { display:block; }
+      html.zh .zh.inline { display:inline; } html:not(.zh) .en.inline { display:inline; }
+      footer { margin-top: 52px; font-size: .9rem; }
+    </style>
+  </head>
+  <body>
+    <button id="language" type="button">中文</button>
+    <div class="crest" aria-hidden="true">◉</div>
+    <main class="en">
+      <h1>Monster<br>Expedition</h1>
+      <p>A local monster-companion idle game for macOS Codex Desktop. Build a two-monster team, travel to Ridge Market, and let your desktop Pet celebrate the best moments.</p>
+      <p class="rule">100,000 new Codex Tokens → Bond Burst → next elite/boss phase wins → extra gear choice.</p>
+      <p>Read the <a href="install.html">installation instructions</a>. Everything is local; no analytics, account, or cloud save.</p>
+    </main>
+    <main class="zh">
+      <h1>怪兽远征</h1>
+      <p>一款面向 macOS Codex Desktop 的本地怪兽陪伴挂机游戏。组建两只怪兽的队伍，前往山口集市，让桌面 Pet 见证每一个高光时刻。</p>
+      <p class="rule">每新增 100,000 Codex Token → 获得羁绊爆发 → 下一场精英/首领阶段获胜 → 额外装备三选一。</p>
+      <p>请按<a href="install.html">安装说明</a>体验。全部数据留在本机，没有分析、账号或云存档。</p>
+    </main>
+    <footer><a href="privacy.html">Privacy / 隐私</a> · <a href="uninstall.html">Uninstall / 卸载</a></footer>
+    <script>
+      document.getElementById('language').addEventListener('click', () => {
+        const zh = document.documentElement.classList.toggle('zh');
+        document.documentElement.lang = zh ? 'zh-CN' : 'en';
+        document.getElementById('language').textContent = zh ? 'EN' : '中文';
+      });
+    </script>
+  </body>
+</html>
