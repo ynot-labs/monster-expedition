@@ -22,7 +22,10 @@ test("built stdio server exposes the Monster Expedition MCP App and applies an i
     stderr: "pipe",
   });
   const client = new Client({ name: "monster-expedition-test", version: "0.2.0" });
+  let serverStderr = "";
+  transport.stderr?.on("data", (chunk: Buffer) => { serverStderr += chunk.toString("utf8"); });
   context.after(async () => client.close());
+  try {
   await client.connect(transport);
 
   const tools = await client.listTools();
@@ -76,4 +79,7 @@ test("built stdio server exposes the Monster Expedition MCP App and applies an i
   assert.match(html, /<script type="module">/);
   assert.doesNotMatch(html, /<script[^>]+src=/);
   assert.doesNotMatch(html, /<link[^>]+href=/);
+  } catch (error) {
+    assert.fail(`${error instanceof Error ? error.stack ?? error.message : String(error)}\nMCP stderr:\n${serverStderr}`);
+  }
 });
