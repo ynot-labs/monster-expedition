@@ -30,6 +30,17 @@ const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(currentDirectory, "..", "..");
 const widgetPath = path.join(projectRoot, "dist", "widget", "index.html");
 
+async function updatePetBridge(snapshot: import("./game-types.js").GameSnapshot): Promise<void> {
+  try {
+    await writePetBridge(snapshot);
+  } catch (error) {
+    // The desktop companion is a positive-feedback surface, never a reason to
+    // terminate the local game or its MCP session.
+    const message = error instanceof Error ? error.message : String(error);
+    process.stderr.write(`Monster Expedition Pet bridge unavailable: ${message}\n`);
+  }
+}
+
 const monsterIdSchema = z.enum(["hammerpaw", "swiftwing", "mosshide", "bellhorn"]);
 const codexLinkStateSchema = z.enum([
   "not-configured",
@@ -109,7 +120,7 @@ export async function createMonsterExpeditionServer(
     },
     async () => {
       const snapshot = await store.read();
-      await writePetBridge(snapshot);
+      await updatePetBridge(snapshot);
       return {
         content: [
           {
@@ -164,7 +175,7 @@ export async function createMonsterExpeditionServer(
         commandResult.snapshot.codexLink.state = linkStatus.state === "restart-required" ? "restart-required" : linkStatus.state;
         return { snapshot: commandResult.snapshot, value: commandResult };
       });
-      await writePetBridge(result.snapshot);
+      await updatePetBridge(result.snapshot);
       return {
         content: [{ type: "text" as const, text: "Monster Expedition progress synchronized." }],
         structuredContent: { snapshot: result.snapshot, duplicate: result.duplicate },
@@ -196,7 +207,7 @@ export async function createMonsterExpeditionServer(
         const commandResult = applyGameCommand(snapshot, command);
         return { snapshot: commandResult.snapshot, value: commandResult };
       });
-      await writePetBridge(result.snapshot);
+      await updatePetBridge(result.snapshot);
       return {
         content: [{ type: "text" as const, text: "Monster Expedition command applied." }],
         structuredContent: { snapshot: result.snapshot, duplicate: result.duplicate },
@@ -248,7 +259,7 @@ export async function createMonsterExpeditionServer(
         const commandResult = applyPreferenceCommand(snapshot, command);
         return { snapshot: commandResult.snapshot, value: commandResult };
       });
-      await writePetBridge(result.snapshot);
+      await updatePetBridge(result.snapshot);
       return {
         content: [{ type: "text" as const, text: "Monster Expedition preferences updated." }],
         structuredContent: { snapshot: result.snapshot, duplicate: result.duplicate },
