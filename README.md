@@ -41,6 +41,8 @@ The Helper is the complete local game authority. The plugin launcher starts it w
 
 The Helper intentionally has no standalone game window: launching the `.app` shows the Pet. The playable auto-battle surface is an MCP App panel, opened inside a new Codex task by asking **Open Monster Expedition** after the plugin is installed.
 
+On the currently installed Codex Desktop preview, the host-side `enable_mcp_apps` feature must also be enabled and Codex restarted. Otherwise the native game service works, but Codex can only display the tool's text snapshot rather than the panel. This is a host feature gate, not a Token, Keychain, or Helper permission.
+
 ## Token connection and privacy
 
 The game runs fully without Codex Link. Selecting **Connect Codex** is an explicit opt-in. It creates a time-stamped backup of `~/.codex/config.toml` and appends only its marked OTel block with `log_user_prompt = false` and a `127.0.0.1` endpoint. Existing OTel configuration is never overwritten; the Link instead reports a conflict and the game keeps running.
